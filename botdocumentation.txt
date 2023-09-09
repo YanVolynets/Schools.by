@@ -1,0 +1,31 @@
+NAME 
+----
+botdocumentation - A tutorial introduction to Schools.by bot
+
+Description
+-----------
+
+This tutorial exaplains how to get started, show you set of all comands and their meanings.
+
+First, note that you can get documentation using command: 
+
+------------------------------------------------
+`/doc`.
+------------------------------------------------
+
+When you start or start again enter in most cases global command: 
+
+------------------------------------------------
+`/start`
+------------------------------------------------
+
+If you want to delete your account enter this global commad: 
+
+------------------------------------------------
+`/deleteuser`
+------------------------------------------------
+
+Сonsider this, yoг can enter one of simbol that include in 'deleteuser' and commad will work. Example: `/delusr`, `/d`, `/resete`. !!! ITS DOESN'T WORK WITH `/START`.
+
+Im most cases you will see the inlinekeyboard, so there're not many commands...
+
