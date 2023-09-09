@@ -444,7 +444,6 @@ bot.hears(/^\d{2}\.\d{2}\s-\s\d{2}\.\d{2}$/, async (ctx) => {
     }
 });
 
-// Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
