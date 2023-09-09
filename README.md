@@ -1,4 +1,4 @@
-#Schools.by bot - more convenient interaction than with site
+# Schools.by bot - more convenient interaction than with site
 
 _ _ _ 
 
