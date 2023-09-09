@@ -17,16 +17,16 @@ class Commands {
             const res = 'Your account is succesfully deleted';
             return res;
         } catch (error) {
-            const res = 'Error... Try later'; // If client error say him, if server error say him
+            const res = 'Error... Try later';
             return res;
         }
     }
+    async doc() {
+        const doc =
+            '`/doc` - show doc https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt \n `/delusr` - delete account \n `/start` - start or start again';
+        return doc;
+    }
 }
-
-// const commands = new Commands({ id: 1234 }, 123);
-// (async () => {
-//     console.log(await commands.delusr());
-// })();
 
 class Person {
     constructor(id) {

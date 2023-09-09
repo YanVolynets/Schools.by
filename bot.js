@@ -11,7 +11,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const { message } = require('telegraf/filters');
 const bot = new Telegraf(BOT_TOKEN);
 const { Person, Commands } = require('./classes.js');
-const { saveUserData, checkid, delusr, getData } = require('./DATABASE.js');
+const { saveUserData, checkid, getData } = require('./DATABASE.js');
 const { sleep } = require('./sleep.js');
 const { checkusr, getMarks, getTHEMarks } = require('./index.js');
 
@@ -20,10 +20,7 @@ let commands;
 
 const loginScene = new BaseScene('loginScene');
 loginScene.enter((ctx) => {
-    // if (!ctx.session.enteredLogin) {
     ctx.reply('Enter your login');
-    // ctx.session.enteredLogin = true;
-    // }
 });
 
 loginScene.on(message('text'), async (ctx) => {
@@ -31,7 +28,8 @@ loginScene.on(message('text'), async (ctx) => {
     person.login = login;
     const msg = ctx.message.text;
     if (msg[0] === '/') {
-        if (msg.slice(0, 4) === '/del') {
+        const regex = /^\/(?:d|e|l|t|u|s|r)+$/;
+        if (regex.test(msg)) {
             try {
                 const res = await commands.delusr();
                 ctx.reply(res);
@@ -39,10 +37,18 @@ loginScene.on(message('text'), async (ctx) => {
                 console.error(error);
             }
         }
-        await sleep(1000);
-        commands.gStart();
+
+        if (msg === '/doc') {
+            const docmarkup = Markup.inlineKeyboard([
+                Markup.button.callback('Continue', 'continue'),
+            ]);
+            const res = await commands.doc();
+            ctx.reply(res, docmarkup);
+        } else {
+            await sleep(1000);
+            commands.gStart();
+        }
     } else {
-        // delete ctx.session.enteredLogin;
         ctx.scene.leave();
         ctx.scene.enter('passwordScene');
     }
@@ -54,7 +60,8 @@ passwordScene.enter((ctx) => ctx.reply('Enter your password'));
 passwordScene.on(message('text'), async (ctx) => {
     const msg = ctx.message.text;
     if (msg[0] === '/') {
-        if (msg.slice(0, 4) === '/del') {
+        const regex = /^\/(?:d|e|l|t|u|s|r)+$/;
+        if (regex.test(msg)) {
             try {
                 const res = await commands.delusr();
                 ctx.reply(res);
@@ -62,8 +69,17 @@ passwordScene.on(message('text'), async (ctx) => {
                 console.error(error);
             }
         }
-        await sleep(1000);
-        commands.gStart();
+
+        if (msg === '/doc') {
+            const docmarkup = Markup.inlineKeyboard([
+                Markup.button.callback('Continue', 'continue'),
+            ]);
+            const res = await commands.doc();
+            ctx.reply(res, docmarkup);
+        } else {
+            await sleep(1000);
+            commands.gStart();
+        }
     } else {
         ctx.session.logged = true;
         const password = ctx.message.text; // PASSWORD
@@ -109,6 +125,11 @@ passwordScene.on(message('text'), async (ctx) => {
             }
         });
     }
+});
+
+bot.action('continue', async (ctx) => {
+    await sleep(1000);
+    commands.gStart();
 });
 
 const stage = new Stage([loginScene, passwordScene]);
@@ -172,6 +193,12 @@ bot.hears(/^\/(?:d|e|l|t|u|s|r)+$/, async (ctx) => {
         ctx.reply('Error has occured. Try later');
         console.error('bot.hears(/^/(?:d|e|l|t|u|s|r)+$/)', error);
     }
+});
+
+bot.hears('/doc', async (ctx) => {
+    const doc =
+        '`/doc` - show doc https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt \n `/delusr` - delete account \n `/start` - start or start again';
+    ctx.reply(doc);
 });
 
 bot.action('further', async (ctx) => {
@@ -424,12 +451,11 @@ bot.hears(/^\d{2}\.\d{2}\s-\s\d{2}\.\d{2}$/, async (ctx) => {
 
         const maxLength = 4096;
 
-        // Разделение сообщения на части
         const messageParts = [];
         for (let i = 0; i < formattedmarks.length; i += maxLength) {
             messageParts.push(formattedmarks.substring(i, i + maxLength));
         }
-        // Отправка частей сообщения последовательно
+
         let firstpart = res[0].slice(5);
         let secondpart = res[res.length - 1].slice(5);
         ctx.reply(`Grades for period: ${firstpart} - ${secondpart}`);

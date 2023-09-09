@@ -84,7 +84,6 @@ function delusr(id) {
 
         connection.connect();
 
-        // Выполните операцию удаления
         const deleteQuery = `DELETE FROM SCHOOL WHERE USERID = ${id}`;
 
         connection.query(deleteQuery, (err, results) => {
@@ -98,7 +97,6 @@ function delusr(id) {
                 reject(new Error(`No user with ID ${id} found.`));
             }
 
-            // Закройте подключение
             connection.end();
         });
     });
