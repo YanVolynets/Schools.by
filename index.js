@@ -101,7 +101,6 @@ async function entrySchool(login, password) {
 }
 
 async function checkBitofQuart(bitOfQuart, cls) {
-    // CHECK BITOFQUART, IF REVERSED: REVERSE
     if (
         parseInt(bitOfQuart[0] + bitOfQuart[1]) > 12 ||
         parseInt(bitOfQuart[8] + bitOfQuart[9]) > 12
@@ -115,7 +114,6 @@ async function checkBitofQuart(bitOfQuart, cls) {
         }
     }
 
-    // SET YEAR TO EACH OF BITOFQUART
 
     let fir = bitOfQuart[0] + bitOfQuart[1] + bitOfQuart[3] + bitOfQuart[4];
     let sec = bitOfQuart[8] + bitOfQuart[9] + bitOfQuart[11] + bitOfQuart[12];
@@ -198,11 +196,6 @@ async function getMarks(cls, quart, login, password) {
         return grades;
     }
 }
-
-// getMarks(6, 4, 'Ян10', '51912345')
-//     .then((marks) => console.log(marks))
-//     .catch((error) => console.error(error));
-
 async function getTHEMarks(cls, bitOfQuart, login, password) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
@@ -282,9 +275,6 @@ async function getTHEMarks(cls, bitOfQuart, login, password) {
     }
 }
 
-// getTHEMarks(6, '05.03 - 08.03', 'Ян10', '51912345')
-//     .then((marks, res) => console.log(marks, res))
-//     .catch((error) => console.error(error));
 
 async function checkusr(username, login) {
     return new Promise(async (resolve, reject) => {

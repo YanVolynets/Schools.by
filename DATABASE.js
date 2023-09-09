@@ -44,10 +44,6 @@ function saveUserData(login, password, id) {
     });
 }
 
-// (async () => {
-//     await saveUserData('Ян10', '51912345', '123');
-// })();
-
 function checkid(id) {
     return new Promise((resolve, reject) => {
         const connection = mysql.createConnection({
@@ -76,15 +72,6 @@ function checkid(id) {
         connection.end();
     });
 }
-
-// (async () => {
-//     try {
-//         await checkid(1805013637);
-//         console.log('succes');
-//     } catch (err) {
-//         console.log(err);
-//     }
-// })();
 
 function delusr(id) {
     return new Promise((resolve, reject) => {
@@ -117,10 +104,6 @@ function delusr(id) {
     });
 }
 
-// (async () => {
-//     await delusr(1805013637);
-// })();
-
 function getData(id) {
     return new Promise((resolve, reject) => {
         const connection = mysql.createConnection({
@@ -144,11 +127,6 @@ function getData(id) {
         });
     });
 }
-
-// (async () => {
-//     const data = await getData('1805013637');
-//     console.log(data[0].LOGIN);
-// })();
 
 exports.saveUserData = saveUserData;
 exports.checkid = checkid;
