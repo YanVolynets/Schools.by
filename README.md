@@ -10,4 +10,4 @@ See [Documentation/botdocumentation.txt](https://github.com/YanVolynets/Schools.
 
 ## Contact Us
 
-If you have any questions or suggestions about the project, feel free to reach out to us through our [Telegram channel](https://t.me/schoolsbysup) or via email [volynetsyan@gmail.com](mailto:volynetsyan@gmail.com).
+If you have any questions or suggestions about the project, feel free to reach out to us through our [Telegram channel](https://t.me/schoolsbysup) or via email [volynetsyan@gmail.com](volynetsyan@gmail.com).
