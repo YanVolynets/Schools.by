@@ -15,13 +15,6 @@ function saveUserData(login, password, id) {
             database: DB_NAME,
         });
 
-        connection.connect((err) => {
-            if (err) {
-                console.error('Ошибка подключения', err);
-                return;
-            }
-        });
-
         const query = `INSERT INTO SCHOOL (LOGIN, PASSWORD, USERID) VALUES (?, ?, ?)`;
 
         connection.query(
