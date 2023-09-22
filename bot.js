@@ -179,7 +179,7 @@ bot.start(async (ctx) => {
             ],
         ]);
 
-        await ctx.editMessageText('Choose class:', classKeyboard);
+        await ctx.reply('Choose class:', classKeyboard);
     }
 });
 
@@ -197,7 +197,7 @@ bot.hears(/^\/(?:d|e|l|t|u|s|r)+$/, async (ctx) => {
 
 bot.hears('/doc', async (ctx) => {
     const doc =
-        '`/doc` - show doc https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt \n `/delusr` - delete account \n `/start` - start or start again';
+        '/doc - show doc  `https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt` \n /delusr - delete account \n /start - start or start again';
     ctx.reply(doc);
 });
 
@@ -216,7 +216,7 @@ bot.action('further', async (ctx) => {
         ],
     ]);
 
-    await ctx.editMessageText('Choose class:', classKeyboard);
+    await ctx.reply('Choose class:', classKeyboard);
 });
 
 bot.action('c8', async (ctx) => {
@@ -365,15 +365,19 @@ bot.action('wq', async (ctx) => {
         const quarter = person.quarter;
         const marks = await getMarks(cls, quarter, login, password);
         for (let i in marks) {
-            formattedmarks += i + ':' + marks[i] + '\n';
+            formattedmarks += `${i} ${marks[i].average.replace(
+                /\./g,
+                '\\.'
+            )}             details: ||${marks[i].marks}|| \n`;
         }
         try {
             if (formattedmarks.length < 1) {
                 throw error;
             }
-            ctx.reply(formattedmarks);
+            ctx.replyWithMarkdownV2(formattedmarks);
         } catch (error) {
             ctx.reply('No grades in this period');
+            formattedmarks = '';
         }
     } catch (error) {
         ctx.reply('Error has occured. Try later');
@@ -444,25 +448,20 @@ bot.hears(/^\d{2}\.\d{2}\s-\s\d{2}\.\d{2}$/, async (ctx) => {
             login,
             password
         );
-
         for (let i in marks) {
-            formattedmarks += i + ':' + marks[i] + '\n';
-        }
-
-        const maxLength = 4096;
-
-        const messageParts = [];
-        for (let i = 0; i < formattedmarks.length; i += maxLength) {
-            messageParts.push(formattedmarks.substring(i, i + maxLength));
+            formattedmarks += `${i} ${marks[i].average.replace(
+                /\./g,
+                '\\.'
+            )}             details: ||${marks[i].marks}|| \n`;
         }
 
         let firstpart = res[0].slice(5);
         let secondpart = res[res.length - 1].slice(5);
         ctx.reply(`Grades for period: ${firstpart} - ${secondpart}`);
         await sleep(1000);
-        for (let part of messageParts) {
-            ctx.reply(part);
-            sleep(1000);
+        if (formattedmarks !== undefined) {
+            ctx.replyWithMarkdownV2(formattedmarks);
+            formattedmarks = '';
         }
     } catch (error) {
         ctx.reply('Error has occured. Try later');

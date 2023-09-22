@@ -23,7 +23,7 @@ class Commands {
     }
     async doc() {
         const doc =
-            '`/doc` - show doc https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt \n `/delusr` - delete account \n `/start` - start or start again';
+            '/doc - show doc `https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt` \n /delusr - delete account \n /start - start or start again';
         return doc;
     }
 }

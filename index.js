@@ -32,6 +32,7 @@ async function getMarksOnPage(page) {
 
 async function calculateAverageGrade(grades) {
     const subjects = {};
+    const averageGrade = {};
 
     for (const grade of grades) {
         const [subject, scoreStr] = grade.split(':');
@@ -39,18 +40,22 @@ async function calculateAverageGrade(grades) {
 
         if (!isNaN(score)) {
             if (!subjects[subject]) {
-                subjects[subject] = { sum: 0, count: 0 };
+                subjects[subject] = { sum: 0, count: 0, marks: '' };
             }
             subjects[subject].sum += score;
             subjects[subject].count += 1;
+            subjects[subject].marks += ` ${score}`;
         }
     }
 
-    const averageGrade = {};
     for (const subject in subjects) {
-        averageGrade[subject] = (
-            subjects[subject].sum / subjects[subject].count
-        ).toFixed(2);
+        averageGrade[subject] = {
+            average: `${(
+                subjects[subject].sum / subjects[subject].count
+            ).toFixed(2)}`,
+
+            marks: `${subjects[subject].marks}`,
+        };
     }
     return averageGrade;
 }
@@ -113,7 +118,6 @@ async function checkBitofQuart(bitOfQuart, cls) {
                 bitOfQuart.slice(8) + ' ' + '-' + ' ' + bitOfQuart.slice(0, 5);
         }
     }
-
 
     let fir = bitOfQuart[0] + bitOfQuart[1] + bitOfQuart[3] + bitOfQuart[4];
     let sec = bitOfQuart[8] + bitOfQuart[9] + bitOfQuart[11] + bitOfQuart[12];
@@ -193,6 +197,7 @@ async function getMarks(cls, quart, login, password) {
             browser.close();
         }
         const grades = await calculateAverageGrade(all_marks);
+        all_marks = [];
         return grades;
     }
 }
@@ -274,7 +279,6 @@ async function getTHEMarks(cls, bitOfQuart, login, password) {
         return [grades, res];
     }
 }
-
 
 async function checkusr(username, login) {
     return new Promise(async (resolve, reject) => {
