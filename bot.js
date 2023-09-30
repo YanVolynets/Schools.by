@@ -11,9 +11,17 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const { message } = require('telegraf/filters');
 const bot = new Telegraf(BOT_TOKEN);
 const { Person, Commands } = require('./classes.js');
-const { saveUserData, checkid, getData } = require('./DATABASE.js');
-const { sleep } = require('./sleep.js');
-const { checkusr, getMarks, getTHEMarks } = require('./index.js');
+const { saveUserData, checkid, getData, getUserID } = require('./DATABASE.js');
+const { sleep, compressText, decompressText } = require('./functions.js');
+const {
+    checkusr,
+    getMarks,
+    getTHEMarks,
+    parseSchedule,
+} = require('./index.js');
+const schedule = require('node-schedule');
+
+const MY_ID = process.env.MY_ID;
 
 let person;
 let commands;
@@ -197,7 +205,7 @@ bot.hears(/^\/(?:d|e|l|t|u|s|r)+$/, async (ctx) => {
 
 bot.hears('/doc', async (ctx) => {
     const doc =
-        '/doc - show doc  `https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt` \n /delusr - delete account \n /start - start or start again';
+        '/doc - show doc  `https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt` \n /delusr - delete account \n /start - start or start again \n /schedule - show lessons and homework';
     ctx.reply(doc);
 });
 
@@ -469,6 +477,81 @@ bot.hears(/^\d{2}\.\d{2}\s-\s\d{2}\.\d{2}$/, async (ctx) => {
     }
 });
 
+bot.command('distribution', async (ctx) => {
+    if (ctx.from.id == MY_ID) {
+        const args = ctx.message.text.split(' ').slice(1);
+        const text = args.join(' ');
+        let data;
+        try {
+            data = await getUserID();
+            for (let i of data) {
+                bot.telegram.sendMessage(i.USERID, text);
+            }
+        } catch (error) {
+            console.log("bot.command('distribution')", error);
+        }
+    }
+});
+
+async function postShedule(ctx = false) {
+    let text = '';
+    try {
+        if (ctx) {
+            ctx.reply('wait about minute');
+        }
+        let login = person.login;
+        let password = person.password;
+        await checkusr(login, password);
+
+        scheduleParse = await parseSchedule(login, password);
+
+        for (let i in scheduleParse) {
+            if (scheduleParse[i].value === 'недоступно') {
+                text += `${scheduleParse[i].key} - your teacher did not write anything... \n \n`;
+            } else {
+                text += `${scheduleParse[i].key} - ${scheduleParse[i].value} \n \n`;
+            }
+        }
+        if (ctx) {
+            ctx.reply(text);
+        } else {
+            try {
+                data = await getUserID();
+                for (let i of data) {
+                    bot.telegram.sendMessage(i.USERID, text);
+                }
+            } catch (error) {
+                if (ctx) {
+                    ctx.reply(
+                        'To get the schedule at 15 per day yoг should enter your real login and password from schools.by'
+                    );
+                    ctx.reply('Maybe error on our side');
+                }
+                sleep(3000);
+                if (commands) {
+                    commands.gStart();
+                }
+                console.log('postSchedule', error);
+            }
+        }
+    } catch (error) {
+        if (ctx) {
+            ctx.reply(
+                'To get the schedule at 15 per day yoг should enter your real login and password from schools.by'
+            );
+        }
+        sleep(1000);
+        console.log('postShedule', error);
+        if (commands) {
+            commands.gStart();
+        }
+    }
+}
+
+bot.command('schedule', (ctx) => postShedule(ctx));
+const job = schedule.scheduleJob('* 15 * * 1-5 ', () => {
+    postShedule();
+});
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 

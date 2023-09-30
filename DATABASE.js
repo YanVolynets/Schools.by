@@ -7,50 +7,64 @@ const DB_NAME = process.env.DB_NAME;
 const DB_HOST = process.env.DB_HOST;
 
 function saveUserData(login, password, id) {
-    return new Promise((resolve, reject) => {
-        const connection = mysql.createConnection({
-            host: DB_HOST,
-            user: DB_USERNAME,
-            password: DB_PASSWORD,
-            database: DB_NAME,
-        });
+    const pool = mysql.createPool({
+        connectionLimit: 10,
+        host: DB_HOST,
+        user: DB_USERNAME,
+        password: DB_PASSWORD,
+        database: DB_NAME,
+    });
 
+    return new Promise((resolve, reject) => {
         const query = `INSERT INTO SCHOOL (LOGIN, PASSWORD, USERID) VALUES (?, ?, ?)`;
 
-        connection.query(
-            query,
-            [login, password, id],
-            (err, results, fields) => {
+        pool.on('release', () => {
+            pool.end((err) => {
                 if (err) {
-                    if (err.message.includes('Duplicate entry')) {
-                        reject(new Error('Duplicate entry'));
-                    } else {
-                        reject(err);
-                    }
-                    return;
+                    console.error('Error pool close:', err);
+                } else {
+                    console.log('Pool close');
                 }
-                resolve();
-            }
-        );
+            });
+        });
 
-        connection.end();
+        pool.query(query, [login, password, id], (err, results, fields) => {
+            if (err) {
+                if (err.message.includes('Duplicate entry')) {
+                    reject(new Error('Duplicate entry'));
+                } else {
+                    reject(err);
+                }
+                return;
+            }
+            resolve();
+        });
     });
 }
 
 function checkid(id) {
+    const pool = mysql.createPool({
+        connectionLimit: 10,
+        host: DB_HOST,
+        user: DB_USERNAME,
+        password: DB_PASSWORD,
+        database: DB_NAME,
+    });
+
     return new Promise((resolve, reject) => {
-        const connection = mysql.createConnection({
-            host: DB_HOST,
-            user: DB_USERNAME,
-            password: DB_PASSWORD,
-            database: DB_NAME,
-        });
-
-        connection.connect();
-
         const query = 'SELECT * FROM SCHOOL WHERE USERID = ?';
 
-        connection.query(query, [id], (err, results) => {
+        pool.on('release', () => {
+            pool.end((err) => {
+                if (err) {
+                    console.error('Error pool close:', err);
+                } else {
+                    console.log('Pool close');
+                }
+            });
+        });
+
+        pool.query(query, [id], (err, results) => {
             if (err) {
                 console.error(err);
                 return;
@@ -62,24 +76,32 @@ function checkid(id) {
                 reject(err);
             }
         });
-        connection.end();
     });
 }
 
 function delusr(id) {
+    const pool = mysql.createPool({
+        connectionLimit: 10,
+        host: DB_HOST,
+        user: DB_USERNAME,
+        password: DB_PASSWORD,
+        database: DB_NAME,
+    });
+
     return new Promise((resolve, reject) => {
-        const connection = mysql.createConnection({
-            host: DB_HOST,
-            user: DB_USERNAME,
-            password: DB_PASSWORD,
-            database: DB_NAME,
-        });
-
-        connection.connect();
-
         const deleteQuery = `DELETE FROM SCHOOL WHERE USERID = ${id}`;
 
-        connection.query(deleteQuery, (err, results) => {
+        pool.on('release', () => {
+            pool.end((err) => {
+                if (err) {
+                    console.error('Error pool close:', err);
+                } else {
+                    console.log('Pool close');
+                }
+            });
+        });
+
+        pool.query(deleteQuery, (err, results) => {
             if (err) {
                 reject(err);
                 return;
@@ -89,32 +111,72 @@ function delusr(id) {
             } else {
                 reject(new Error(`No user with ID ${id} found.`));
             }
-
-            connection.end();
         });
     });
 }
 
 function getData(id) {
-    return new Promise((resolve, reject) => {
-        const connection = mysql.createConnection({
-            host: DB_HOST,
-            user: DB_USERNAME,
-            password: DB_PASSWORD,
-            database: DB_NAME,
-        });
+    const pool = mysql.createPool({
+        connectionLimit: 10,
+        host: DB_HOST,
+        user: DB_USERNAME,
+        password: DB_PASSWORD,
+        database: DB_NAME,
+    });
 
+    return new Promise((resolve, reject) => {
         const query = 'SELECT LOGIN, PASSWORD FROM SCHOOL WHERE USERID = ?';
 
-        connection.query(query, [id], (err, results) => {
+        pool.on('release', () => {
+            pool.end((err) => {
+                if (err) {
+                    console.error('Error pool close:', err);
+                } else {
+                    console.log('Pool close');
+                }
+            });
+        });
+
+        pool.query(query, [id], (err, results) => {
             if (err) {
                 console.error(err);
                 reject(err);
                 return;
             }
             resolve(results);
+        });
+    });
+}
 
-            connection.end();
+function getUserID() {
+    const pool = mysql.createPool({
+        connectionLimit: 10,
+        host: DB_HOST,
+        user: DB_USERNAME,
+        password: DB_PASSWORD,
+        database: DB_NAME,
+    });
+
+    return new Promise((resolve, reject) => {
+        const query = 'SELECT USERID FROM SCHOOL';
+
+        pool.on('release', () => {
+            pool.end((err) => {
+                if (err) {
+                    console.error('Error pool close:', err);
+                } else {
+                    console.log('Pool close');
+                }
+            });
+        });
+
+        pool.query(query, (err, results) => {
+            if (err) {
+                console.error(err);
+                reject(err);
+                return;
+            }
+            resolve(results);
         });
     });
 }
@@ -123,3 +185,4 @@ exports.saveUserData = saveUserData;
 exports.checkid = checkid;
 exports.delusr = delusr;
 exports.getData = getData;
+exports.getUserID = getUserID;

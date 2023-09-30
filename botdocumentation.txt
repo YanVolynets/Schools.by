@@ -27,5 +27,11 @@ If you want to delete your account enter this global commad:
 
 Сonsider this, yoг can enter one of simbol that include in 'deleteuser' and commad will work. Example: `/delusr`, `/d`, `/resete`. !!! ITS DOESN'T WORK WITH `/START`.
 
+This command send you lessons and homework on next day, if it friday, on Monday.
+
+------------------------------------------------
+`/schedule`
+------------------------------------------------
+
 Im most cases you will see the inlinekeyboard, so there're not many commands...
 

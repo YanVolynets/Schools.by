@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer');
-const { sleep } = require('./sleep.js');
+const { sleep } = require('./functions.js');
 const { shortsLessons } = require('./shorts.js');
 const { quarters } = require('./quarters.js');
 
@@ -22,8 +22,10 @@ async function getMarksOnPage(page) {
             ? await markElement.evaluate((node) => node.textContent)
             : null;
         if (markValue !== null) {
-            if (!isNaN(markValue) || markValue.length > 0) {
-                marks.push(shortsLessons[lessonText] + ':' + markValue);
+            if (!isNaN(markValue) || markValue.includes('/')) {
+                if (markValue.length > 0) {
+                    marks.push(shortsLessons[lessonText] + ':' + markValue);
+                }
             }
         }
     }
@@ -36,15 +38,39 @@ async function calculateAverageGrade(grades) {
 
     for (const grade of grades) {
         const [subject, scoreStr] = grade.split(':');
-        const score = parseInt(scoreStr);
+        if (scoreStr.includes('/')) {
+            let score = parseInt(scoreStr.slice(0, scoreStr.indexOf('/')));
 
-        if (!isNaN(score)) {
-            if (!subjects[subject]) {
-                subjects[subject] = { sum: 0, count: 0, marks: '' };
+            if (!isNaN(score)) {
+                if (!subjects[subject]) {
+                    subjects[subject] = { sum: 0, count: 0, marks: '' };
+                }
+                subjects[subject].sum += score;
+                subjects[subject].count += 1;
+                subjects[subject].marks += ` ${score}`;
             }
-            subjects[subject].sum += score;
-            subjects[subject].count += 1;
-            subjects[subject].marks += ` ${score}`;
+
+            score = parseInt(scoreStr.slice(scoreStr.indexOf('/') + 1));
+
+            if (!isNaN(score)) {
+                if (!subjects[subject]) {
+                    subjects[subject] = { sum: 0, count: 0, marks: '' };
+                }
+                subjects[subject].sum += score;
+                subjects[subject].count += 1;
+                subjects[subject].marks += ` ${score}`;
+            }
+        } else {
+            let score = parseInt(scoreStr);
+
+            if (!isNaN(score)) {
+                if (!subjects[subject]) {
+                    subjects[subject] = { sum: 0, count: 0, marks: '' };
+                }
+                subjects[subject].sum += score;
+                subjects[subject].count += 1;
+                subjects[subject].marks += ` ${score}`;
+            }
         }
     }
 
@@ -63,6 +89,7 @@ async function calculateAverageGrade(grades) {
 async function entrySchool(login, password) {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
+    let userID;
 
     try {
         await page.setViewport({ width: 1040, height: 1024 });
@@ -102,6 +129,123 @@ async function entrySchool(login, password) {
             browser.close();
         }
         return userID;
+    }
+}
+
+async function parseSchedule(login, password) {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    const userID = await entrySchool(login, password);
+
+    let dateTime = new Date(
+        new Date().setDate(new Date().getDate() + 1)
+    ).getDate();
+    let dayTime = new Date().getDay();
+    let lesson = [];
+    try {
+        await page.setViewport({ width: 1040, height: 1024 });
+        await page.goto('https://schools.by/login');
+
+        await page.type('#id_username', login);
+        await page.type('#id_password', password);
+
+        await page.waitForSelector('.button_wrap');
+        await page.click('.button_wrap');
+
+        await page.waitForSelector('#accept-cookies');
+        await page.click('#accept-cookies');
+
+        const diary_button = '.tabs1 > li > a';
+        await page.waitForSelector(diary_button);
+        await page.click(diary_button);
+
+        await sleep(2000);
+
+        await page.evaluate(() => {
+            const element = document.querySelector('.db_week');
+            if (element) {
+                element.scrollIntoView();
+            }
+        });
+
+        if (dayTime == 5 || dayTime == 6 || dayTime == 0) {
+            const trElement = await page.$('.db_table');
+            const dateElem = await trElement.$('.lesson');
+            const date = dateElem
+                ? await dateElem.evaluate((node) =>
+                      node.textContent.trim().slice(-2)
+                  )
+                : 'недоступно';
+            try {
+                let datePart = new Date(
+                    new Date().setDate(Number(date) + 7)
+                ).getDate();
+                dateTime = datePart;
+                if (datePart < 10) {
+                    datePart = '0' + datePart;
+                }
+                let monthPart = new Date(
+                    new Date(new Date().setDate(Number(date) + 7)).setMonth(
+                        new Date(
+                            new Date().setDate(Number(date) + 7)
+                        ).getMonth() + 1
+                    )
+                ).getMonth();
+                const quarter = 80; // CORRECT WHEN START 2 QUARTER
+                if (monthPart > 1) {
+                    yearPart = 2023;
+                } else {
+                    yearPart = 2024;
+                }
+                await page.goto(
+                    `https://gymn146.schools.by/m/pupil/${userID}/dnevnik/quarter/${quarter}/week/${yearPart}-${monthPart}-${datePart}`
+                );
+            } catch (error) {
+                console.log('parseSchedule', error);
+            }
+        }
+        const trElements = await page.$$('.db_table');
+
+        for (let tr of trElements) {
+            const dateElem = await tr.$('.lesson');
+            const date = dateElem
+                ? await dateElem.evaluate((node) =>
+                      node.textContent.trim().slice(-2).trim()
+                  )
+                : 'недоступно';
+
+            if (date == dateTime) {
+                const trElem = await tr.$$('tbody tr');
+
+                for (let tr of trElem) {
+                    let lm = await tr.$('.lesson span');
+                    let hw = await tr.$('.ht .ht-text-wrapper .ht-text');
+
+                    const lmText = lm
+                        ? await lm.evaluate((node) =>
+                              node.textContent.slice(2).trim()
+                          )
+                        : 'недоступно';
+                    const hwText = hw
+                        ? await hw.evaluate((node) => node.textContent.trim())
+                        : 'недоступно';
+
+                    lmText !== null &&
+                        lmText !== '' &&
+                        lesson.push({
+                            key: shortsLessons[lmText],
+                            value: hwText,
+                        });
+                }
+            }
+        }
+    } catch (error) {
+        console.log('parseCurrentDay', error);
+    } finally {
+        if (browser) {
+            browser.close();
+            return lesson;
+        }
     }
 }
 
@@ -309,3 +453,4 @@ async function checkusr(username, login) {
 exports.checkusr = checkusr;
 exports.getMarks = getMarks;
 exports.getTHEMarks = getTHEMarks;
+exports.parseSchedule = parseSchedule;
