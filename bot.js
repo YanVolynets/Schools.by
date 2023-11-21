@@ -10,8 +10,20 @@ const {
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const { message } = require('telegraf/filters');
 const bot = new Telegraf(BOT_TOKEN);
-const { Person, Commands } = require('./classes.js');
-const { saveUserData, checkid, getData, getUserID } = require('./DATABASE.js');
+const {
+  saveUserData,
+  checkid,
+  getData,
+  getUserID,
+  UpdateClsPerson,
+  UpdateQuarterPerson,
+  getDataPerson,
+  delusr,
+  saveUserDataPerson,
+  delusrPerson,
+  UpdateHoursPerson,
+  UpdateMarksPerson,
+} = require('./DATABASE.js');
 const { sleep, compressText, decompressText } = require('./functions.js');
 const {
   checkusr,
@@ -24,82 +36,47 @@ const { lessonsGoals } = require('./objects.js');
 
 const MY_ID = process.env.MY_ID;
 
-let person;
-let commands;
 let lessonGoal;
-let marksSG;
 let managesgMarkup;
 let sum = 0;
 let count = -1;
 let marksAdded;
-let lessonHours;
+let ctx2;
+let maxCls;
 
 const loginScene = new BaseScene('loginScene');
 loginScene.enter((ctx) => {
-  ctx.reply('Enter your login');
+  ctx.reply('Enter your login and password separated by a space');
 });
 
 loginScene.on(message('text'), async (ctx) => {
-  const login = ctx.message.text; // LOGIN
-  person.login = login;
+  ctx2 = ctx;
   const msg = ctx.message.text;
   if (msg[0] === '/') {
-    const regex = /^\/(?:d|e|l|t|u|s|r)+$/;
-    if (regex.test(msg)) {
+    if (/^\/(?:d|e|l|t|u|s|r)+$/.test(msg)) {
       try {
-        const res = await commands.delusr();
+        await delusr(ctx.from.id);
+        await delusrPerson(ctx.from.id);
+        const res = 'Your account is succesfully deleted';
         ctx.reply(res);
       } catch (error) {
-        console.error(error);
+        const res = 'Error... Try later';
+        ctx.reply(res);
+        console.log(`if (/^\/(?:d|e|l|t|u|s|r)+$/.test(msg)) {, ${error}`);
       }
     }
 
     if (msg === '/doc') {
-      const docmarkup = Markup.inlineKeyboard([
-        Markup.button.callback('Continue', 'continue'),
-      ]);
-      const res = await commands.doc();
-      ctx.reply(res, docmarkup);
+      const doc =
+        '/doc - show doc `https://github.com/YanVolynets/Schools.by/blob/master/botdocumentation.txt` \n /delusr - delete account \n /start - start or start again \n /schedule - show lessons and homework';
+      ctx.reply(doc);
     } else {
       await sleep(1000);
-      commands.gStart();
-    }
-  } else {
-    ctx.scene.leave();
-    ctx.scene.enter('passwordScene');
-  }
-});
-
-const passwordScene = new BaseScene('passwordScene');
-passwordScene.enter((ctx) => ctx.reply('Enter your password'));
-
-passwordScene.on(message('text'), async (ctx) => {
-  const msg = ctx.message.text;
-  if (msg[0] === '/') {
-    const regex = /^\/(?:d|e|l|t|u|s|r)+$/;
-    if (regex.test(msg)) {
-      try {
-        const res = await commands.delusr();
-        ctx.reply(res);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-
-    if (msg === '/doc') {
-      const docmarkup = Markup.inlineKeyboard([
-        Markup.button.callback('Continue', 'continue'),
-      ]);
-      const res = await commands.doc();
-      ctx.reply(res, docmarkup);
-    } else {
-      await sleep(1000);
-      commands.gStart();
+      ctx.scene.leave();
+      ctx.scene.enter('loginScene');
     }
   } else {
     ctx.session.logged = true;
-    const password = ctx.message.text; // PASSWORD
-    person.password = password;
 
     const saveData = Markup.inlineKeyboard([
       Markup.button.callback('Yes(wait about 1 minute)', 'Yes_data'),
@@ -107,16 +84,23 @@ passwordScene.on(message('text'), async (ctx) => {
     ctx.reply('Save DATA?', saveData);
 
     bot.action('Yes_data', async (ctx) => {
-      const login = person.login;
-      const password = person.password;
-      const id = person.id;
+      const login = ctx2.message.text.split(' ')[0];
+      const password = ctx2.message.text.split(' ')[1];
       try {
-        await checkusr(login, password);
+        maxCls = await checkusr(login, password);
         try {
-          await saveUserData(login, password, id);
-          ctx.reply('Data saved successfully.');
+          await saveUserDataPerson(
+            null,
+            null,
+            ctx2.from.id,
+            null,
+            null,
+            maxCls
+          );
+          await saveUserData(login, password, ctx2.from.id);
+          ctx2.reply('Data saved successfully.');
           await sleep(1000);
-          ctx.scene.leave();
+          ctx2.scene.leave();
           const markupfurther = Markup.inlineKeyboard([
             Markup.button.callback('Next 🚀', 'further'),
           ]);
@@ -125,50 +109,38 @@ passwordScene.on(message('text'), async (ctx) => {
           if (error.message.includes('Duplicate entry')) {
             ctx.reply('User with this data is already logged');
             await sleep(500);
-            commands.gStart();
+            ctx2.scene.leave();
+            ctx2.scene.enter('loginScene');
           } else {
             ctx.reply('Error has occurred. Try later.');
             console.log('Error saving data:', error);
             await sleep(500);
-            commands.gStart();
+            ctx2.scene.leave();
+            ctx2.scene.enter('loginScene');
           }
         }
       } catch (error) {
+        setTimeout(() => {
+          ctx.scene.leave();
+          ctx.scene.enter('loginScene');
+        }, 1000);
+        console.error('loginScene.on(message(text)', error);
         ctx.reply("login or password isn't correct");
-        sleep(1000);
-        console.error('passwordScene.on(message(text)', error);
-        commands.gStart();
       }
     });
   }
 });
 
-bot.action('continue', async (ctx) => {
-  await sleep(1000);
-  commands.gStart();
-});
-
-const stage = new Stage([loginScene, passwordScene]);
+const stage = new Stage([loginScene]);
 
 bot.use(session());
 bot.use(stage.middleware());
 
 bot.start(async (ctx) => {
   const id = ctx.from.id;
-  person = new Person(id);
-  commands = new Commands(ctx, id);
   if (!ctx.session.logged) {
     try {
       await checkid(id);
-      try {
-        const data = await getData(ctx.from.id);
-        const login = data[0].LOGIN;
-        const password = data[0].PASSWORD;
-        person.login = login;
-        person.password = password;
-      } catch (error) {
-        console.error('bot.start', error);
-      }
       const markupfurther = Markup.inlineKeyboard([
         Markup.button.callback('Next 🚀', 'further'),
       ]);
@@ -182,16 +154,18 @@ bot.start(async (ctx) => {
       }
     }
   } else {
+    let [resDB2] = await getDataPerson(id);
+    maxCls = resDB2.MAXCLS;
     const classKeyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('Class 8', 'c8'),
-        Markup.button.callback('Class 7', 'c7'),
-        Markup.button.callback('Class 6', 'c6'),
+        Markup.button.callback(`Class ${maxCls}`, `c${maxCls}`),
+        Markup.button.callback(`Class ${maxCls - 1}`, `c${maxCls - 1}`),
+        Markup.button.callback(`Class ${maxCls - 2}`, `c${maxCls - 2}`),
       ],
       [
-        Markup.button.callback('Class 5', 'c5'),
-        Markup.button.callback('Class 4', 'c4'),
-        Markup.button.callback('Class 3', 'c3'),
+        Markup.button.callback(`Class ${maxCls - 3}`, `c${maxCls - 3}`),
+        Markup.button.callback(`Class ${maxCls - 4}`, `c${maxCls - 4}`),
+        Markup.button.callback(`Class ${maxCls - 5}`, `c${maxCls - 5}`),
       ],
     ]);
 
@@ -201,13 +175,17 @@ bot.start(async (ctx) => {
 
 bot.hears(/^\/(?:d|e|l|t|u|s|r)+$/, async (ctx) => {
   try {
-    const res = await commands.delusr(ctx.from.id);
+    await delusr(ctx.from.id);
+    await delusrPerson(ctx.from.id);
+    const res = 'Your account is succesfully deleted';
     ctx.reply(res);
-    await sleep(500);
-    commands.gStart();
+    ctx.scene.enter('loginScene');
   } catch (error) {
-    ctx.reply('Error has occured. Try later');
-    console.error('bot.hears(/^/(?:d|e|l|t|u|s|r)+$/)', error);
+    const res = 'Error... Try later';
+    ctx.reply(res);
+    console.log(
+      `bot.hears(/^\/(?:d|e|l|t|u|s|r)+$/, async (ctx) => {, ${error}`
+    );
   }
 });
 
@@ -218,27 +196,95 @@ bot.hears('/doc', async (ctx) => {
 });
 
 bot.action('further', async (ctx) => {
+  let [resDB2] = await getDataPerson(ctx.from.id);
+  maxCls = resDB2.MAXCLS;
   await ctx.answerCbQuery('Ok!');
   const classKeyboard = Markup.inlineKeyboard([
     [
-      Markup.button.callback('Class 8', 'c8'),
-      Markup.button.callback('Class 7', 'c7'),
-      Markup.button.callback('Class 6', 'c6'),
+      Markup.button.callback(`Class ${maxCls}`, `c${maxCls}`),
+      Markup.button.callback(`Class ${maxCls - 1}`, `c${maxCls - 1}`),
+      Markup.button.callback(`Class ${maxCls - 2}`, `c${maxCls - 2}`),
     ],
     [
-      Markup.button.callback('Class 5', 'c5'),
-      Markup.button.callback('Class 4', 'c4'),
-      Markup.button.callback('Class 3', 'c3'),
+      Markup.button.callback(`Class ${maxCls - 3}`, `c${maxCls - 3}`),
+      Markup.button.callback(`Class ${maxCls - 4}`, `c${maxCls - 4}`),
+      Markup.button.callback(`Class ${maxCls - 5}`, `c${maxCls - 5}`),
     ],
   ]);
 
   await ctx.reply('Choose class:', classKeyboard);
 });
 
+bot.action('c11', async (ctx) => {
+  try {
+    const cls = 11;
+    await UpdateClsPerson(11, ctx.from.id);
+    const quatersKeyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
+        Markup.button.callback('Quarter 2 (wait about 1 minute)', 'q2'),
+      ],
+      [
+        Markup.button.callback('Quarter 3 (wait about 1 minute)', 'q3'),
+        Markup.button.callback('Quarter 4 (wait about 1 minute)', 'q4'),
+      ],
+      [Markup.button.callback('Back 🕒', 'back')],
+    ]);
+    await ctx.editMessageText('Choose quarter:', quatersKeyboard);
+  } catch (error) {
+    ctx.reply('Error has occured. Try later');
+    console.log("bot.action('c11', async (ctx) => {", error);
+  }
+});
+
+bot.action('c10', async (ctx) => {
+  try {
+    const cls = 10;
+    await UpdateClsPerson(10, ctx.from.id);
+    const quatersKeyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
+        Markup.button.callback('Quarter 2 (wait about 1 minute)', 'q2'),
+      ],
+      [
+        Markup.button.callback('Quarter 3 (wait about 1 minute)', 'q3'),
+        Markup.button.callback('Quarter 4 (wait about 1 minute)', 'q4'),
+      ],
+      [Markup.button.callback('Back 🕒', 'back')],
+    ]);
+    await ctx.editMessageText('Choose quarter:', quatersKeyboard);
+  } catch (error) {
+    ctx.reply('Error has occured. Try later');
+    console.log("bot.action('c10', async (ctx) => {", error);
+  }
+});
+
+bot.action('c9', async (ctx) => {
+  try {
+    const cls = 9;
+    await UpdateClsPerson(9, ctx.from.id);
+    const quatersKeyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
+        Markup.button.callback('Quarter 2 (wait about 1 minute)', 'q2'),
+      ],
+      [
+        Markup.button.callback('Quarter 3 (wait about 1 minute)', 'q3'),
+        Markup.button.callback('Quarter 4 (wait about 1 minute)', 'q4'),
+      ],
+      [Markup.button.callback('Back 🕒', 'back')],
+    ]);
+    await ctx.editMessageText('Choose quarter:', quatersKeyboard);
+  } catch (error) {
+    ctx.reply('Error has occured. Try later');
+    console.log("bot.action('c9', async (ctx) => {", error);
+  }
+});
+
 bot.action('c8', async (ctx) => {
   try {
     const cls = 8;
-    person.cls = cls;
+    await UpdateClsPerson(8, ctx.from.id);
     const quatersKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
@@ -259,7 +305,7 @@ bot.action('c8', async (ctx) => {
 bot.action('c7', async (ctx) => {
   try {
     const cls = 7;
-    person.cls = cls;
+    await UpdateClsPerson(7, ctx.from.id);
     const quatersKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
@@ -280,7 +326,7 @@ bot.action('c7', async (ctx) => {
 bot.action('c6', async (ctx) => {
   try {
     const cls = 6;
-    person.cls = cls;
+    await UpdateClsPerson(6, ctx.from.id);
     const quatersKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
@@ -301,7 +347,7 @@ bot.action('c6', async (ctx) => {
 bot.action('c5', async (ctx) => {
   try {
     const cls = 5;
-    person.cls = cls;
+    await UpdateClsPerson(5, ctx.from.id);
     const quatersKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
@@ -322,7 +368,7 @@ bot.action('c5', async (ctx) => {
 bot.action('c4', async (ctx) => {
   try {
     const cls = 4;
-    person.cls = cls;
+    await UpdateClsPerson(4, ctx.from.id);
     const quatersKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
@@ -343,7 +389,7 @@ bot.action('c4', async (ctx) => {
 bot.action('c3', async (ctx) => {
   try {
     const cls = 3;
-    person.cls = cls;
+    await UpdateClsPerson(3, ctx.from.id);
     const quatersKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Quarter 1 (wait about 1 minute)', 'q1'),
@@ -364,14 +410,16 @@ bot.action('c3', async (ctx) => {
 
 bot.action('q1', async (ctx) => {
   try {
-    marksSG = '';
-    const login = person.login;
-    const password = person.password;
-    const cls = person.cls;
+    const [resDB] = await getData(ctx.from.id);
+    const [resDB2] = await getDataPerson(ctx.from.id);
+    const login = resDB.LOGIN;
+    const password = resDB.PASSWORD;
+    const cls = resDB2.CLS;
     const quarter = 1;
-    let [res1, res2] = await getMarks(cls, quarter, login, password);
-
-    person.quarter = quarter;
+    await UpdateQuarterPerson(quarter, ctx.from.id);
+    let [marksSG, lessonHours] = await getMarks(cls, quarter, login, password);
+    await UpdateMarksPerson(JSON.stringify(marksSG), ctx.from.id);
+    await UpdateHoursPerson(JSON.stringify(lessonHours), ctx.from.id);
     const quaterKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Whole quarter', 'wq'),
@@ -384,8 +432,6 @@ bot.action('q1', async (ctx) => {
       [Markup.button.callback('Back 🕒', 'backq')],
     ]);
     await ctx.editMessageText('Choose:', quaterKeyboard);
-    marksSG = res1;
-    lessonHours = res2;
   } catch (error) {
     ctx.reply('Error has occured. Try later');
     console.log("bot.action('q1', async (ctx) => {", error);
@@ -394,15 +440,16 @@ bot.action('q1', async (ctx) => {
 
 bot.action('q2', async (ctx) => {
   try {
-    marksSG = '';
-    const login = person.login;
-    const password = person.password;
-    const cls = person.cls;
+    const [resDB] = await getData(ctx.from.id);
+    const [resDB2] = await getDataPerson(ctx.from.id);
+    const login = resDB.LOGIN;
+    const password = resDB.PASSWORD;
+    const cls = resDB2.CLS;
     const quarter = 2;
-    let [res1, res2] = await getMarks(cls, quarter, login, password);
-    marksSG = res1;
-    lessonHours = res2;
-    person.quarter = quarter;
+    await UpdateQuarterPerson(quarter, ctx.from.id);
+    let [marksSG, lessonHours] = await getMarks(cls, quarter, login, password);
+    await UpdateMarksPerson(JSON.stringify(marksSG), ctx.from.id);
+    await UpdateHoursPerson(JSON.stringify(lessonHours), ctx.from.id);
     const quaterKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Whole quarter', 'wq'),
@@ -423,15 +470,16 @@ bot.action('q2', async (ctx) => {
 
 bot.action('q3', async (ctx) => {
   try {
-    marksSG = '';
-    const login = person.login;
-    const password = person.password;
-    const cls = person.cls;
+    const [resDB] = await getData(ctx.from.id);
+    const [resDB2] = await getDataPerson(ctx.from.id);
+    const login = resDB.LOGIN;
+    const password = resDB.PASSWORD;
+    const cls = resDB2.CLS;
     const quarter = 3;
-    let [res1, res2] = await getMarks(cls, quarter, login, password);
-    marksSG = res1;
-    lessonHours = res2;
-    person.quarter = quarter;
+    await UpdateQuarterPerson(quarter, ctx.from.id);
+    let [marksSG, lessonHours] = await getMarks(cls, quarter, login, password);
+    await UpdateMarksPerson(JSON.stringify(marksSG), ctx.from.id);
+    await UpdateHoursPerson(JSON.stringify(lessonHours), ctx.from.id);
     const quaterKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Whole quarter', 'wq'),
@@ -452,15 +500,16 @@ bot.action('q3', async (ctx) => {
 
 bot.action('q4', async (ctx) => {
   try {
-    marksSG = '';
-    const login = person.login;
-    const password = person.password;
-    const cls = person.cls;
+    const [resDB] = await getData(ctx.from.id);
+    const [resDB2] = await getDataPerson(ctx.from.id);
+    const login = resDB.LOGIN;
+    const password = resDB.PASSWORD;
+    const cls = resDB2.CLS;
     const quarter = 4;
-    let [res1, res2] = await getMarks(cls, quarter, login, password);
-    marksSG = res1;
-    lessonHours = res2;
-    person.quarter = quarter;
+    await UpdateQuarterPerson(quarter, ctx.from.id);
+    let [marksSG, lessonHours] = await getMarks(cls, quarter, login, password);
+    await UpdateMarksPerson(JSON.stringify(marksSG), ctx.from.id);
+    await UpdateHoursPerson(JSON.stringify(lessonHours), ctx.from.id);
     const quaterKeyboard = Markup.inlineKeyboard([
       [
         Markup.button.callback('Whole quarter', 'wq'),
@@ -505,29 +554,42 @@ bot.action('sg', async (ctx) => {
       Markup.button.callback('Русский язык'),
       Markup.button.callback('Русская литература'),
     ],
+    [
+      Markup.button.callback('Астрономия'),
+      Markup.button.callback('Обществоведение'),
+    ],
   ]);
   ctx.reply('Choose lesson:', goalsMarkup);
 });
 
 bot.action('chron', async (ctx) => {
+  let [resDB] = await getDataPerson(ctx.from.id);
   try {
     let text = '';
-    for (let i in lessonHours) {
+    for (let i in JSON.parse(resDB.HOURS)) {
       if (i !== 'undefined') {
-        text += `${i} hours *${lessonHours[i]}*:\nBooks unread \\- ${Math.round(
-          lessonHours[i] / 8
+        text += `${i} hours *${
+          JSON.parse(resDB.HOURS)[i]
+        }*:\nBooks unread \\- ${Math.round(
+          JSON.parse(resDB.HOURS)[i] / 8
         )}\\.\nSongs unheard \\- ${Math.round(
-          (lessonHours[i] * 60) / 3
+          (JSON.parse(resDB.HOURS)[i] * 60) / 3
         )}\\.\nThe basics of program lang unlearned \\- ${Math.ceil(
-          lessonHours[i] / 15
+          JSON.parse(resDB.HOURS)[i] / 15
         )}\\.\nUncovered a distance by car \\- ${
-          lessonHours[i] * 100
+          JSON.parse(resDB.HOURS)[i] * 100
         }\\.\nUncovered a distance by helicopter \\- ${
-          lessonHours[i] * 300
-        }\\.\nMissed sleep \\- ${Math.ceil(lessonHours[i] / 10)}\\.\n\n`;
+          JSON.parse(resDB.HOURS)[i] * 300
+        }\\.\nMissed sleep \\- ${Math.ceil(
+          JSON.parse(resDB.HOURS)[i] / 10
+        )}\\.\n\n`;
       }
     }
-    ctx.replyWithMarkdownV2(text);
+    if (text) {
+      ctx.replyWithMarkdownV2(text);
+    } else {
+      ctx.reply('Error has occured. Try later');
+    }
   } catch (errro) {
     ctx.reply('Error has occured. Try later');
   }
@@ -537,12 +599,20 @@ bot.hears(/^\d{2}\.\d{2}\s-\s\d{2}\.\d{2}$/, async (ctx) => {
   ctx.reply('Expect');
   let formattedmarks = '';
   const bitOfQuart = ctx.message.text;
-  const login = person.login;
-  const password = person.password;
-  const cls = person.cls;
-  person.bitOfQuart = bitOfQuart;
+  const [resDB] = await getData(ctx.from.id);
+  const [resDB2] = await getDataPerson(ctx.from.id);
+  const login = resDB.LOGIN;
+  const password = resDB.PASSWORD;
+  const cls = resDB2.CLS;
+  const sch = resDB2.SCH
   try {
-    const [marks, res] = await getTHEMarks(cls, bitOfQuart, login, password);
+    const [marks, res] = await getTHEMarks(
+      cls,
+      bitOfQuart,
+      login,
+      password,
+      sch
+    );
     for (let i in marks) {
       formattedmarks += `${i} ${marks[i].average.replace(
         /\./g,
@@ -596,7 +666,8 @@ bot.on(message('text'), async (ctx) => {
     ctx.reply('Choose your goal:', markupGoal);
   } else if (lessonGoal && ['10', '9', '8', '7'].includes(ctx.message.text)) {
     try {
-      let marksObj = marksSG[lessonGoal].marks.split(' ');
+      let [resDB] = await getDataPerson(ctx.from.id);
+      let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
       sum = 0;
       let sumN = 0;
       let countN = -0;
@@ -650,6 +721,10 @@ bot.on(message('text'), async (ctx) => {
         Markup.button.callback('Русский язык'),
         Markup.button.callback('Русская литература'),
       ],
+      [
+        Markup.button.callback('Астрономия'),
+        Markup.button.callback('Обществоведение'),
+      ],
     ]);
     ctx.reply('Choose lesson:', goalsMarkup);
   } else if (ctx.message.text == 'Manage it? 🤔') {
@@ -678,7 +753,8 @@ bot.on(message('text'), async (ctx) => {
 
 bot.action('ten', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -703,8 +779,8 @@ bot.action('ten', async (ctx) => {
 
 bot.action('nine', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -729,8 +805,8 @@ bot.action('nine', async (ctx) => {
 
 bot.action('eight', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -755,8 +831,8 @@ bot.action('eight', async (ctx) => {
 
 bot.action('seven', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -781,8 +857,8 @@ bot.action('seven', async (ctx) => {
 
 bot.action('six', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -807,8 +883,8 @@ bot.action('six', async (ctx) => {
 
 bot.action('five', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -833,8 +909,8 @@ bot.action('five', async (ctx) => {
 
 bot.action('four', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -859,8 +935,8 @@ bot.action('four', async (ctx) => {
 
 bot.action('three', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -885,8 +961,8 @@ bot.action('three', async (ctx) => {
 
 bot.action('two', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -911,8 +987,8 @@ bot.action('two', async (ctx) => {
 
 bot.action('one', async (ctx) => {
   try {
-    let marksObj = marksSG[lessonGoal].marks.split(' ');
-
+    let [resDB] = await getDataPerson(ctx.from.id);
+    let marksObj = JSON.parse(resDB.MARKS)[lessonGoal].marks.split(' ');
     if (sum == 0) {
       for (let i of marksObj) {
         sum += Number(i);
@@ -964,17 +1040,19 @@ bot.action('deleteSG', (ctx) => {
 
 bot.action('back', async (ctx) => {
   try {
+    let [resDB2] = await getDataPerson(ctx.from.id);
+    maxCls = resDB2.MAXCLS;
     await ctx.answerCbQuery('Ok!');
     const classKeyboard = Markup.inlineKeyboard([
       [
-        Markup.button.callback('Class 8', 'c8'),
-        Markup.button.callback('Class 7', 'c7'),
-        Markup.button.callback('Class 6', 'c6'),
+        Markup.button.callback(`Class ${maxCls}`, `c${maxCls}`),
+        Markup.button.callback(`Class ${maxCls - 1}`, `c${maxCls - 1}`),
+        Markup.button.callback(`Class ${maxCls - 2}`, `c${maxCls - 2}`),
       ],
       [
-        Markup.button.callback('Class 5', 'c5'),
-        Markup.button.callback('Class 4', 'c4'),
-        Markup.button.callback('Class 3', 'c3'),
+        Markup.button.callback(`Class ${maxCls - 3}`, `c${maxCls - 3}`),
+        Markup.button.callback(`Class ${maxCls - 4}`, `c${maxCls - 4}`),
+        Markup.button.callback(`Class ${maxCls - 5}`, `c${maxCls - 5}`),
       ],
     ]);
 
@@ -988,13 +1066,14 @@ bot.action('back', async (ctx) => {
 // NEXT STEP
 
 bot.action('wq', async (ctx) => {
+  let [resDB] = await getDataPerson(ctx.from.id);
   let formattedmarks = '';
   try {
-    for (let i in marksSG) {
-      formattedmarks += `${i} ${marksSG[i].average.replace(
+    for (let i in JSON.parse(resDB.MARKS)) {
+      formattedmarks += `${i} ${JSON.parse(resDB.MARKS)[i].average.replace(
         /\./g,
         '\\.'
-      )}             details: ||${marksSG[i].marks}|| \n`;
+      )}             details: ||${JSON.parse(resDB.MARKS)[i].marks}|| \n`;
     }
     try {
       if (formattedmarks.length < 1) {
@@ -1035,49 +1114,17 @@ bot.action('backq', async (ctx) => {
   }
 });
 
-bot.hears(/^\d{2}\.\d{2}\s-\s\d{2}\.\d{2}$/, async (ctx) => {
-  ctx.reply('Expect');
-  let formattedmarks = '';
-  const bitOfQuart = ctx.message.text;
-  const login = person.login;
-  const password = person.password;
-  const cls = person.cls;
-  person.bitOfQuart = bitOfQuart;
-  try {
-    const [marks, res] = await getTHEMarks(cls, bitOfQuart, login, password);
-    for (let i in marks) {
-      formattedmarks += `${i} ${marks[i].average.replace(
-        /\./g,
-        '\\.'
-      )}             details: ||${marks[i].marks}|| \n`;
-    }
-
-    let firstpart = res[0].slice(5);
-    let secondpart = res[res.length - 1].slice(5);
-    ctx.reply(`Grades for period: ${firstpart} - ${secondpart}`);
-    await sleep(1000);
-    if (formattedmarks !== undefined) {
-      ctx.replyWithMarkdownV2(formattedmarks);
-      formattedmarks = '';
-    }
-  } catch (error) {
-    ctx.reply('Error has occured. Try later');
-    console.error('bot.hears(/^d{2}.d{2}s-sd{2}.d{2}$/', error);
-  }
-});
-
-async function postShedule(ctx = false) {
+async function postShedule(ctx) {
   let text = '';
   try {
-    if (ctx) {
-      ctx.reply('wait about minute');
-    }
-    let login = person.login;
-    let password = person.password;
-    await checkusr(login, password);
+    ctx.reply('wait about minute');
 
+    const [resDB] = await getData(ctx.from.id);
+    const [resDB2] = await getDataPerson(ctx.from.id);
+    const login = resDB.LOGIN;
+    const password = resDB.PASSWORD;
+    maxCls = await checkusr(login, password);
     scheduleParse = await parseSchedule(login, password);
-
     for (let i in scheduleParse) {
       if (scheduleParse[i].value === 'недоступно') {
         text += `${scheduleParse[i].key} - your teacher did not write anything... \n \n`;
@@ -1085,50 +1132,24 @@ async function postShedule(ctx = false) {
         text += `${scheduleParse[i].key} - ${scheduleParse[i].value} \n \n`;
       }
     }
-    if (ctx) {
-      if (text) {
-        ctx.reply(text);
-      } else {
-        ctx.reply('Error has occured. Try later');
-      }
+
+    if (text) {
+      ctx.reply(text);
     } else {
-      try {
-        data = await getUserID();
-        for (let i of data) {
-          bot.telegram.sendMessage(i.USERID, text);
-        }
-      } catch (error) {
-        if (ctx) {
-          ctx.reply(
-            'To get the schedule at 15 per day yoг should enter your real login and password from schools.by'
-          );
-          ctx.reply('Maybe error on our side');
-        }
-        sleep(3000);
-        if (commands) {
-          commands.gStart();
-        }
-        console.log('postSchedule', error);
-      }
+      ctx.reply('Error has occured. Try later');
     }
   } catch (error) {
     if (ctx) {
       ctx.reply(
-        'To get the schedule at 15 per day yoг should enter your real login and password from schools.by'
+        'To get the schedule you should enter your real login and password from schools.by'
       );
     }
     sleep(1000);
     console.log('postShedule', error);
-    if (commands) {
-      commands.gStart();
-    }
+    ctx.scene.enter('loginScene');
   }
 }
 
-const job = schedule.scheduleJob('0 15 * * 1-5 ', () => {
-  console.log('job send');
-  postShedule();
-});
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 

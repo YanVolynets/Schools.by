@@ -106,6 +106,7 @@ async function entrySchool(login, password) {
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
   let userID;
+  let currentCls;
 
   try {
     await page.setViewport({ width: 1040, height: 1024 });
@@ -122,6 +123,11 @@ async function entrySchool(login, password) {
     await page.waitForSelector(cookies_button);
     await page.click(cookies_button);
 
+    currentCls = await page.$('.pp_line a');
+    currentCls = await currentCls.evaluate((node) =>
+      Number(node.textContent.split('-')[0])
+    );
+
     const diary_button = '.tabs1 > li > a';
     await page.waitForSelector(diary_button);
     await page.click(diary_button);
@@ -136,7 +142,10 @@ async function entrySchool(login, password) {
     });
     await sleep(1000);
     const currentUrl = page.url();
-    userID = currentUrl.slice(33, 39);
+    userID = currentUrl.slice(
+      currentUrl.indexOf('l') + 12,
+      currentUrl.indexOf('#')
+    );
     await sleep(1000);
   } catch (error) {
     throw error;
@@ -144,14 +153,14 @@ async function entrySchool(login, password) {
     if (browser) {
       browser.close();
     }
-    return userID;
+    return [userID, currentCls];
   }
 }
 
 async function parseSchedule(login, password) {
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
-  const userID = await entrySchool(login, password);
+  const [userID, currentCls] = await entrySchool(login, password);
 
   let dateTime = new Date(
     new Date().setDate(new Date().getDate() + 1)
@@ -168,8 +177,13 @@ async function parseSchedule(login, password) {
     await page.waitForSelector('.button_wrap');
     await page.click('.button_wrap');
 
+    await sleep(2000);
     await page.waitForSelector('#accept-cookies');
     await page.click('#accept-cookies');
+
+    let sch = page
+      .url()
+      .slice(page.url().indexOf('/') + 2, page.url().indexOf('.'));
 
     const diary_button = '.tabs1 > li > a';
     await page.waitForSelector(diary_button);
@@ -201,14 +215,14 @@ async function parseSchedule(login, password) {
             new Date(new Date().setDate(Number(date) + 7)).getMonth() + 1
           )
         ).getMonth();
-        const quarter = 80; // CORRECT WHEN START 2 QUARTER
+        const quarter = 81; // CORRECT WHEN START 3 QUARTER
         if (monthPart > 1) {
           yearPart = 2023;
         } else {
           yearPart = 2024;
         }
         await page.goto(
-          `https://gymn146.schools.by/m/pupil/${userID}/dnevnik/quarter/${quarter}/week/${yearPart}-${monthPart}-${datePart}`
+          `https://${sch}.schools.by/m/pupil/${userID}/dnevnik/quarter/${quarter}/week/${yearPart}-${monthPart}-${datePart}`
         );
       } catch (error) {
         console.log('parseSchedule', error);
@@ -257,7 +271,7 @@ async function parseSchedule(login, password) {
   }
 }
 
-async function checkBitofQuart(bitOfQuart, cls) {
+async function checkBitofQuart(bitOfQuart, cls, currentCls) {
   if (
     parseInt(bitOfQuart[0] + bitOfQuart[1]) > 12 ||
     parseInt(bitOfQuart[8] + bitOfQuart[9]) > 12
@@ -276,33 +290,33 @@ async function checkBitofQuart(bitOfQuart, cls) {
 
   if (parseInt(fir) > 531) {
     fir =
-      quarters.get(cls).get(1).data[0][0] +
-      quarters.get(cls).get(1).data[0][1] +
-      quarters.get(cls).get(1).data[0][2] +
-      quarters.get(cls).get(1).data[0][3] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][0] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][1] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][2] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][3] +
       fir;
   } else {
     fir =
-      quarters.get(cls).get(4).data[0][0] +
-      quarters.get(cls).get(4).data[0][1] +
-      quarters.get(cls).get(4).data[0][2] +
-      quarters.get(cls).get(4).data[0][3] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][0] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][1] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][2] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][3] +
       fir;
   }
 
   if (parseInt(sec) > 531) {
     sec =
-      quarters.get(cls).get(1).data[0][0] +
-      quarters.get(cls).get(1).data[0][1] +
-      quarters.get(cls).get(1).data[0][2] +
-      quarters.get(cls).get(1).data[0][3] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][0] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][1] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][2] +
+      quarters.get(11 - currentCls + cls).get(1).data[0][3] +
       sec;
   } else {
     sec =
-      quarters.get(cls).get(4).data[0][0] +
-      quarters.get(cls).get(4).data[0][1] +
-      quarters.get(cls).get(4).data[0][2] +
-      quarters.get(cls).get(4).data[0][3] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][0] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][1] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][2] +
+      quarters.get(11 - currentCls + cls).get(4).data[0][3] +
       sec;
   }
   const BFS = bitOfQuart + ',' + fir + ',' + sec;
@@ -314,7 +328,7 @@ async function getMarks(cls, quart, login, password) {
   lessonHours = {};
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
-  const userID = await entrySchool(login, password);
+  const [userID, currentCls] = await entrySchool(login, password);
 
   try {
     await page.setViewport({ width: 1040, height: 1024 });
@@ -330,12 +344,16 @@ async function getMarks(cls, quart, login, password) {
     await page.click('#accept-cookies');
     await sleep(500);
 
-    const num_quart = quarters.get(cls).get(quart).quarter;
-    const weeks_quart = quarters.get(cls).get(quart).data;
+    let sch = page
+      .url()
+      .slice(page.url().indexOf('/') + 2, page.url().indexOf('.'));
+
+    const num_quart = quarters.get(11 - currentCls + cls).get(quart).quarter;
+    const weeks_quart = quarters.get(11 - currentCls + cls).get(quart).data;
     await sleep(1000);
     for (let week of weeks_quart) {
       await page.goto(
-        `https://gymn146.schools.by/m/pupil/${userID}/dnevnik/quarter/${num_quart}/week/${week}`
+        `https://${sch}.schools.by/m/pupil/${userID}/dnevnik/quarter/${num_quart}/week/${week}`
       );
       const marksOnCurrentPage = await getMarksOnPage(page);
       await getDaysHours(page);
@@ -374,17 +392,21 @@ async function getTHEMarks(cls, bitOfQuart, login, password) {
     await page.click('#accept-cookies');
     await sleep(500);
 
+    let sch = page
+      .url()
+      .slice(page.url().indexOf('/') + 2, page.url().indexOf('.'));
+
     await sleep(500);
 
-    const userID = await entrySchool(login, password);
-    const BFS = await checkBitofQuart(bitOfQuart, cls);
+    const [userID, currentCls] = await entrySchool(login, password);
+    const BFS = await checkBitofQuart(bitOfQuart, cls, currentCls);
     formattedBFS = BFS.split(',');
     bitOfQuart = formattedBFS[0];
     const fir = formattedBFS[1];
     const sec = formattedBFS[2];
 
     for (let n = 1; n <= 4; n++) {
-      const quart = quarters.get(cls).get(n).data;
+      const quart = quarters.get(11 - currentCls + cls).get(n).data;
       for (let i of quart) {
         let date = i[0] + i[1] + i[2] + i[3] + i[5] + i[6] + i[8] + i[9];
         if (
@@ -404,12 +426,12 @@ async function getTHEMarks(cls, bitOfQuart, login, password) {
         }
       }
       if (res.length !== 0) {
-        const num_quart = quarters.get(cls).get(n).quarter;
+        const num_quart = quarters.get(11 - currentCls + cls).get(n).quarter;
 
         try {
           for (let week of res) {
             await page.goto(
-              `https://gymn146.schools.by/m/pupil/${userID}/dnevnik/quarter/${num_quart}/week/${week}`
+              `https://${sch}.schools.by/m/pupil/${userID}/dnevnik/quarter/${num_quart}/week/${week}`
             );
 
             const marksOnCurrentPage = await getMarksOnPage(page);
@@ -433,6 +455,7 @@ async function getTHEMarks(cls, bitOfQuart, login, password) {
 }
 
 async function checkusr(username, login) {
+  let maxCls;
   return new Promise(async (resolve, reject) => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
@@ -449,7 +472,11 @@ async function checkusr(username, login) {
       const cookies_button = '#accept-cookies';
       await page.waitForSelector(cookies_button);
       await page.click(cookies_button);
-      resolve(true);
+      maxCls = await page.$('.pp_line a');
+      maxCls = await maxCls.evaluate((node) =>
+        Number(node.textContent.split('-')[0])
+      );
+      resolve(maxCls);
     } catch (error) {
       reject(error);
     } finally {
